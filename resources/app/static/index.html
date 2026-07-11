@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#09090B">
+  <meta name="description" content="网页分轨播放器 — 加载任意歌曲，AI 将其分离为 4 条音轨。独立音量、静音、独奏，配合生成艺术可视化。">
+  <title>ilya</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="app">
+
+  <!-- L1: visualizer mount (decorative) -->
+  <div id="viz-mount" class="viz-mount" aria-hidden="true"></div>
+
+  <!-- L2: top bar -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <svg class="brand__mark" viewBox="0 0 192.672 192.672" width="28" height="28" aria-hidden="true">
+        <path fill="none" d="M0 0h192.672v192.672H0z"/>
+        <g fill="#ad3652">
+          <path d="M36.576 98.712H22.68v-1.08c0 .576 3.816-.864 4.248-1.152 1.512-1.152 1.44-3.24 1.44-4.968V72.288v-8.28c0-3.384-2.88-4.392-5.688-4.392v-1.08h14.184s18.144 23.04 18.432 23.4c-.216-.216 0-1.656 0-2.016 0-1.584.072-3.168 0-4.752 0-3.024 0-6.048.072-9 0-3.24 0-5.976-3.816-6.48-.072 0-2.016-.144-2.016-.072v-1.08h14.4v1.08c0-.216-2.952.216-3.312.288-2.448.864-2.592 3.744-2.592 5.904.072 3.744.144 7.416.144 11.16v22.32h-.864L31.248 66.672v24.84c0 3.6 1.512 6.12 5.328 6.12v1.08z"/>
+          <path d="M79.272 136.656v-.576-8.496-13.968c0-2.088.576-5.256-.576-7.128-.576-.792-1.512-1.152-2.376-1.296-.216-.072-2.448-.288-2.448-.216v-1.008h9.72c4.032 0 8.064-.072 12.096.072 3.816.144 7.632.792 10.224 4.032 2.808 3.456 3.312 8.568.504 12.168-1.656 2.088-4.032 3.888-6.552 4.68.36-.072 4.104 5.832 4.464 6.408 1.584 2.376 3.096 4.824 4.608 7.272 1.08 1.8 2.592 4.176 5.04 4.176v1.08H101.88c-3.024-4.608-5.904-9.216-8.928-13.824-1.152-1.8-2.448-4.392-4.896-4.392 0 4.32-.36 8.856.072 13.176.288 2.304 1.224 3.6 3.6 3.888l.864.072h.864v1.08H73.872c0-1.296.36-1.008 1.584-1.152 1.008-.072 2.088-.216 2.88-1.008 1.152-1.224.936-3.384.936-5.04zm8.784-30.528v17.28c3.744 0 7.488-.144 9.576-3.672 1.944-3.24 2.16-7.992-.504-10.944-1.44-1.728-3.816-2.664-6.12-2.664h-2.952z"/>
+          <path d="M171.936 43.776c-.144-.432-.216-1.008-.504-1.296-.864-.792-1.152-1.8-2.232-2.52-.72-.432-1.584-.576-2.016-1.44-.864-1.656-.072-3.024-2.088-4.176-.648-.36-1.512-.432-1.944-1.08s-.216-1.584-.648-2.232c-.864-1.224-2.52-2.016-3.528-3.024-.864-.792-.864-2.16-1.656-2.952-1.008-1.008-3.096-.432-4.392-.504-.216-1.584-2.448-2.088-3.672-2.376-1.368-.288-1.944-1.584-3.168-2.304-1.296-.72-2.664-.432-4.032-.432-2.52-.072-5.976-.648-6.336-3.744.864-.36 1.08-1.008 1.728-1.656.576-.576 1.008-.648 1.224-1.512.216-.72 0-1.512.144-2.232.288-1.584 1.44-2.664 2.88-3.384-1.224-2.592-4.608-1.152-6.696-2.448-.864-.576-1.584-1.08-2.736-1.008-1.152.144-2.016.576-3.24.432-1.224-.072-1.656-.72-2.736-1.008-1.008-.216-2.448.144-3.24.648-.072 0 0 .072 0 .072-1.584 1.44-2.664.936-4.32.072-1.368-.792-2.88-.792-4.248 0-1.224.792-2.376 1.44-3.888 1.008-1.512-.432-2.808-1.008-4.248-.144-.648.36-1.008.936-1.656 1.152-1.368.36-3.168.072-4.608.216-1.656.216-3.312.504-4.824 1.08-3.456 1.296-6.12 3.384-8.136 6.48-4.176 6.624-1.44 15.264-3.24 22.464-1.224 5.04-4.824 10.224-10.44 10.44-3.888.144-6.984-2.448-9.288-5.328-2.736-3.312-5.184-6.84-7.416-10.512-1.656-2.88-3.456-6.12-4.104-9.432l-.216-1.008-6.48 6.552L75.24 58.536H64.728v1.08c0-.072 2.376.144 2.592.144.936.216 1.944.504 2.52 1.368 1.872 2.736 1.368 5.976 1.368 9.072-.072 4.248-.216 19.656-.792 24.336-.36 2.664-3.312 3.168-5.616 3.096 0 .144-.072 1.08-.072 1.08h32.688l1.872-13.104h-1.08c-.144 0-1.512 3.456-1.656 3.744-.792 1.944-2.088 3.456-3.888 4.608-3.6 2.376-12.888 3.744-12.888-2.736V79.128c1.224.072 2.376.216 3.528.576 3.744 1.296 4.968 4.968 5.256 8.568h1.08v-14.04l27.288 29.736h-6.768c0 .36 0 .72.072 1.08 3.96-.072 4.536 5.04 5.76 7.776 2.736 6.192 4.896 12.6 7.488 18.792 1.8 4.392 3.528 8.784 5.256 13.176h1.296l7.632-18.288 27.288 29.736v-.504c.072-1.368-.072-2.664-.216-4.032-.144-2.232.432-4.464.36-6.696-.072-2.232-1.152-3.888-1.728-5.976-.216-1.152.072-2.232.432-3.312.72-2.016.288-3.816.072-5.904-.288-2.088 1.8-3.24 1.44-5.472-.144-1.08-.72-1.728-.648-2.808.072-1.008.216-1.872-.072-2.952-.288-1.008-.864-2.016-.864-3.024-.072-1.296.432-2.376 0-3.672-.504-1.512-.72-2.376-.432-3.888.36-1.872.864-4.464-.648-5.976-.792-.936-1.368-1.008-1.584-2.376-.144-1.008-.144-2.016-.216-3.024-.072-1.008-.216-2.016-.648-2.952-.432-.792-1.224-1.512-1.656-2.304-.72-1.656.216-3.528-.288-5.256-.288-.864-.864-1.584-1.152-2.448-.288-.864-.432-1.8-.864-2.664-.72-1.368-2.016-1.656-1.8-3.456.216-1.296.792-2.16-.144-3.384-.864-1.08-1.944-1.44-2.448-2.736-.504-1.368-.648-2.232-1.944-3.024-.936-.72-2.016-1.512-3.168-1.656-1.368-.144-2.664.36-3.528-.936-.648-1.008-.576-2.16-1.944-2.592-1.152-.288-2.592.288-3.528-.576-.792-.72-1.152-1.728-1.872-2.52-.36-.432-1.368-1.008-.432-1.584 1.008-.576 2.808 1.296 3.888 1.584 1.368.36 3.168.576 4.608.72 3.096.216 5.472-2.232 8.496-2.16 1.44.072 2.952.576 4.32.072 1.296-.576 1.8-2.376 3.24-2.664 1.584-.216 2.736.936 4.032-.648.936-1.152 1.08-2.592 2.304-3.528 1.44-1.08 3.096-.864 4.608-1.584 1.224-.648 1.872-2.304 2.736-3.384-.72-1.008-1.224-2.088-1.728-3.168z"/>
+        </g>
+      </svg>
+    </div>
+    <span class="topbar__track nums" id="track-label" aria-live="polite">未加载曲目</span>
+    <button id="btn-source" class="btn btn--ghost" type="button" aria-label="打开来源菜单">来源</button>
+  </header>
+
+  <!-- L3: bottom device console -->
+  <main class="console" id="console" aria-label="分轨播放器控制台">
+
+    <!-- 3a: transport (main body — seek on top, buttons on bottom) -->
+    <section class="console__transport transport" aria-label="播放控制">
+      <div class="transport__seek">
+        <span class="time time--current nums" id="time-current">0:00</span>
+        <input type="range" id="seek" class="seek" min="0" max="1" step="0.01" value="0"
+               aria-label="播放进度" disabled>
+        <span class="time time--total nums" id="time-total">0:00</span>
+      </div>
+      <div class="transport__buttons">
+        <button id="btn-prev" class="btn btn--icon btn--nav" type="button" aria-label="上一首" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M18 5 L8 12 L18 19 Z" fill="currentColor"/>
+            <rect x="5" y="5" width="2.5" height="14" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="btn-play" class="btn btn--icon btn--play" type="button" aria-label="播放" disabled>
+          <svg class="icon icon--play" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <path d="M6 4 L20 12 L6 20 Z" fill="currentColor"/>
+          </svg>
+          <svg class="icon icon--pause" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" hidden>
+            <rect x="5" y="4" width="5" height="16" fill="currentColor"/>
+            <rect x="14" y="4" width="5" height="16" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="btn-stop" class="btn btn--icon" type="button" aria-label="停止" disabled>
+          <svg class="icon icon--stop" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" fill="currentColor"/>
+          </svg>
+        </button>
+        <button id="btn-next" class="btn btn--icon btn--nav" type="button" aria-label="下一首" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M6 5 L16 12 L6 19 Z" fill="currentColor"/>
+            <rect x="16.5" y="5" width="2.5" height="14" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- 3b: 4 stem tracks (vertical console) -->
+    <section class="console__stems stems" aria-label="音轨">
+      <article class="stem" data-stem="vocals" style="--stem:#D8C9A8">
+        <span class="stem__label">人声</span>
+        <div class="stem__steps" data-stem="vocals" data-vol="1">
+          <button class="btn--step" data-vol="0" type="button">0</button>
+          <button class="btn--step" data-vol="0.25" type="button">25</button>
+          <button class="btn--step" data-vol="0.5" type="button">50</button>
+          <button class="btn--step" data-vol="0.75" type="button">75</button>
+          <button class="btn--step" data-vol="1" type="button">100</button>
+        </div>
+      </article>
+      <article class="stem" data-stem="drums" style="--stem:#C4423A">
+        <span class="stem__label">鼓声</span>
+        <div class="stem__steps" data-stem="drums" data-vol="1">
+          <button class="btn--step" data-vol="0" type="button">0</button>
+          <button class="btn--step" data-vol="0.25" type="button">25</button>
+          <button class="btn--step" data-vol="0.5" type="button">50</button>
+          <button class="btn--step" data-vol="0.75" type="button">75</button>
+          <button class="btn--step" data-vol="1" type="button">100</button>
+        </div>
+      </article>
+      <article class="stem" data-stem="bass" style="--stem:#A8C8D8">
+        <span class="stem__label">贝斯</span>
+        <div class="stem__steps" data-stem="bass" data-vol="1">
+          <button class="btn--step" data-vol="0" type="button">0</button>
+          <button class="btn--step" data-vol="0.25" type="button">25</button>
+          <button class="btn--step" data-vol="0.5" type="button">50</button>
+          <button class="btn--step" data-vol="0.75" type="button">75</button>
+          <button class="btn--step" data-vol="1" type="button">100</button>
+        </div>
+      </article>
+      <article class="stem" data-stem="other" style="--stem:#5A7A8A">
+        <span class="stem__label">其他</span>
+        <div class="stem__steps" data-stem="other" data-vol="1">
+          <button class="btn--step" data-vol="0" type="button">0</button>
+          <button class="btn--step" data-vol="0.25" type="button">25</button>
+          <button class="btn--step" data-vol="0.5" type="button">50</button>
+          <button class="btn--step" data-vol="0.75" type="button">75</button>
+          <button class="btn--step" data-vol="1" type="button">100</button>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <!-- L4: source overlay (upload + demos) -->
+  <div class="overlay" id="source-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" hidden>
+    <div class="overlay__backdrop" data-close></div>
+    <div class="overlay__panel">
+      <header class="overlay__head">
+        <h2 class="overlay__title" id="overlay-title">加载曲目</h2>
+        <button id="overlay-close" class="btn btn--icon" type="button" aria-label="关闭来源菜单">
+          <svg class="icon icon--close" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M5 5 L19 19 M19 5 L5 19" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
+        </button>
+      </header>
+      <div class="overlay__tabs" role="tablist">
+        <button class="tab-btn tab-btn--active" role="tab" data-tab="upload" aria-selected="true">上传</button>
+        <button class="tab-btn" role="tab" data-tab="netease" aria-selected="false">网易云音乐</button>
+        <button class="tab-btn" role="tab" data-tab="demos" aria-selected="false">示例</button>
+      </div>
+      <div class="overlay__body">
+        <section class="upload tab-panel tab-panel--active" data-panel="upload" aria-label="上传音频">
+          <div id="upload-zone" class="upload__zone" tabindex="0" role="button"
+               aria-label="拖放音频文件或点击选择">
+            <input type="file" id="file-input" class="upload__input"
+                   accept=".mp3,.wav,.m4a,.flac,.ogg,.aac,.ncm" hidden>
+            <p class="upload__hint">拖放音频文件或点击选择（支持网易云 .ncm）</p>
+            <p class="upload__sub">MP3 / WAV / M4A / FLAC / OGG / AAC / NCM - 最大 500 MB</p>
+          </div>
+          <div id="upload-status" class="upload__status" hidden>
+            <div class="upload__progress">
+              <span class="upload__bar"><span id="upload-bar-fill" class="upload__bar-fill"></span></span>
+              <span class="upload__pct nums" id="upload-pct">0%</span>
+            </div>
+            <p class="upload__msg" id="upload-msg">分离中...</p>
+          </div>
+        </section>
+
+        <!-- NetEase Cloud Music Tab -->
+        <section class="netease tab-panel" data-panel="netease" aria-label="网易云音乐" hidden>
+          <div id="netease-login" class="netease__login">
+            <div class="netease__login-header">
+              <h3 class="netease__title">网易云音乐登录</h3>
+              <p class="netease__subtitle">扫码登录，获取你的歌单</p>
+            </div>
+            <div class="netease__qr-area">
+              <div id="netease-qr-wrap" class="netease__qr-wrap">
+                <div id="netease-qr" class="netease__qr"></div>
+              </div>
+              <p id="netease-qr-status" class="netease__qr-status">生成二维码中...</p>
+              <button id="netease-qr-refresh" class="btn btn--ghost netease__refresh-btn" type="button" hidden>
+                刷新二维码
+              </button>
+            </div>
+          </div>
+
+          <div id="netease-logged-in" class="netease__logged-in" hidden>
+            <div class="netease__user">
+              <img id="netease-avatar" class="netease__avatar" src="" alt="头像">
+              <div class="netease__user-info">
+                <span id="netease-nickname" class="netease__nickname"></span>
+                <button id="netease-logout-btn" class="btn btn--tag netease__logout-btn" type="button">退出</button>
+              </div>
+            </div>
+            <div class="netease__playlists-header">
+              <h3 class="netease__section-title">我的歌单</h3>
+              <span id="netease-playlists-count" class="netease__count nums"></span>
+            </div>
+            <div id="netease-playlists" class="netease__playlists">
+              <p class="netease__loading">加载中...</p>
+            </div>
+          </div>
+
+          <!-- Playlist tracks view -->
+          <div id="netease-tracks-view" class="netease__tracks-view" hidden>
+            <div class="netease__tracks-header">
+              <button id="netease-back-btn" class="btn btn--icon btn--small" type="button" aria-label="返回">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M15 6 L9 12 L15 18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <span id="netease-playlist-name" class="netease__playlist-name"></span>
+            </div>
+            <div class="netease__batch-bar">
+              <label class="netease__select-all">
+                <input type="checkbox" id="netease-select-all"> 全选
+              </label>
+              <span id="netease-batch-count" class="netease__batch-count nums">已选 0 首</span>
+              <button id="netease-batch-btn" class="btn btn--tag netease__batch-btn" type="button" disabled>批量分离</button>
+            </div>
+            <div id="netease-batch-progress" class="netease__batch-progress" hidden>
+              <div class="netease__batch-progress-bar">
+                <span class="upload__bar"><span id="netease-batch-fill" class="upload__bar-fill"></span></span>
+                <span class="upload__pct nums" id="netease-batch-pct">0%</span>
+              </div>
+              <p class="upload__msg" id="netease-batch-msg">准备中...</p>
+            </div>
+            <div id="netease-tracks" class="netease__tracks"></div>
+          </div>
+        </section>
+
+        <section class="demos tab-panel" data-panel="demos" aria-label="示例曲目" hidden>
+          <h3 class="demos__title">示例</h3>
+          <div id="demo-list" class="demos__list"></div>
+          <p class="demos__note" id="demo-note" hidden>构建中...</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- L5: toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- scripts (ordered per plan D3; soundtouch NOT here per plan D1)
+       defer: allows parallel download during HTML parse, preserves execution order
+       p5.min.js is loaded dynamically by viz.js (bundle-dynamic-imports) -->
+  <script src="/static/js/utils.js" defer></script>
+  <script src="/static/js/audio-engine.js" defer></script>
+  <script src="/static/js/viz.js" defer></script>
+  <script src="/static/js/demo-synth.js" defer></script>
+  <script src="/static/js/ui.js" defer></script>
+  <script src="/static/js/netease.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>

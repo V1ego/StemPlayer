@@ -1,0 +1,88 @@
+{
+  "name": "stem-player",
+  "version": "1.0.0",
+  "description": "AI 分轨播放器 — 加载任意歌曲，AI 自动分离为人声/鼓/贝斯/伴奏四轨",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.stemplayer.app",
+    "productName": "ilya",
+    "asar": false,
+    "directories": {
+      "output": "build-out"
+    },
+    "files": [
+      "electron/**/*",
+      "static/**/*",
+      "app/**/*.py",
+      "netease_proxy.js",
+      "run.py",
+      "requirements.txt",
+      "node_modules/**/*",
+      "!**/__pycache__/**",
+      "!**/.git/**"
+    ],
+    "extraResources": [
+      {
+        "from": ".venv",
+        "to": "python",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/pip/**",
+          "!**/cache/**",
+          "!**/_cache/**"
+        ]
+      },
+      {
+        "from": ".ffmpeg",
+        "to": ".ffmpeg",
+        "filter": [
+          "**/*",
+          "!**/doc/**",
+          "!**/include/**",
+          "!**/lib/**",
+          "!**/presets/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "static/icon.png",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "ilya-${version}.exe"
+    }
+  },
+  "keywords": [
+    "music",
+    "stem",
+    "demucs",
+    "ai",
+    "player"
+  ],
+  "author": "OuJia",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "NeteaseCloudMusicApi": "^4.27.0"
+  }
+}
