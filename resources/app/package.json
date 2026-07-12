@@ -1,7 +1,7 @@
 {
   "name": "stem-player",
-  "version": "1.0.0",
-  "description": "AI 分轨播放器 — 加载任意歌曲，AI 自动分离为人声/鼓/贝斯/伴奏四轨",
+  "version": "1.1.0",
+  "description": "绫波分轨 — 灵感源于 Kanye STEM PLAYER × 绫波丽。AI 分离人声/鼓/贝斯/其他四轨，生成艺术可视化。",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
