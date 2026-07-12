@@ -50,6 +50,9 @@
     neteaseUI.onBatchComplete = handleBatchComplete;
     neteaseUI.onPlayAll = handlePlayAll;
 
+    // ---- dark theme toggle ----
+    initTheme();
+
     // ---- engine callbacks -> UI (D6) ----
     engine.onTick = function (pos) {
       ui.setProgress(pos);
@@ -116,6 +119,31 @@
     } else if (e.key === "Escape" && !U.$("#source-overlay").hidden) {
       ui.closeOverlay();
     }
+  }
+
+  // ---- dark theme toggle ----
+
+  function initTheme() {
+    var body = document.body;
+    if (localStorage.getItem("stem-theme") === "dark") {
+      body.classList.add("dark-theme");
+    }
+    var btn = U.$("#btn-theme");
+    if (!btn) return;
+    updateThemeIcon();
+    U.on(btn, "click", function () {
+      body.classList.toggle("dark-theme");
+      localStorage.setItem("stem-theme", body.classList.contains("dark-theme") ? "dark" : "light");
+      updateThemeIcon();
+    });
+  }
+
+  function updateThemeIcon() {
+    var isDark = document.body.classList.contains("dark-theme");
+    var lightIcon = document.querySelector(".icon--light");
+    var darkIcon = document.querySelector(".icon--dark");
+    if (lightIcon) lightIcon.hidden = isDark;
+    if (darkIcon) darkIcon.hidden = !isDark;
   }
 
   // ---- playlist helpers ----

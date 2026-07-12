@@ -58,7 +58,7 @@
     e.overlayClose = U.$("#overlay-close");
     e.btnSource = U.$("#btn-source");
     e.btnPlay = U.$("#btn-play");
-    e.btnStop = U.$("#btn-stop");
+    /* btnStop removed — merged into btnPlay (3-circle layout) */
     e.btnPrev = U.$("#btn-prev");
     e.btnNext = U.$("#btn-next");
     e.seek = U.$("#seek");
@@ -174,12 +174,10 @@
 
     // ---- transport ----
     U.on(e.btnPlay, "click", function () {
-      if (self.engine.playing) self.engine.pause();
+      if (self.engine.playing) self.engine.stop();
       else self.engine.play();
     });
-    U.on(e.btnStop, "click", function () {
-      self.engine.stop();
-    });
+    /* stop merged into play button */
     U.on(e.btnPrev, "click", function () {
       if (typeof self.onPrev === "function") self.onPrev();
     });
@@ -256,17 +254,16 @@
     var canPlay = (s === "ready" || s === "playing" || s === "paused" ||
                    s === "stopped" || s === "ended");
     e.btnPlay.disabled = !canPlay;
-    e.btnStop.disabled = !canPlay;
     e.seek.disabled = !canPlay;
 
-    // play/pause icon swap
+    // 3-circle layout: center toggles play/stop
     if (s === "playing") {
       U.$(".icon--play", e.btnPlay).hidden = true;
-      U.$(".icon--pause", e.btnPlay).hidden = false;
-      e.btnPlay.setAttribute("aria-label", "暂停");
+      U.$(".icon--stop", e.btnPlay).hidden = false;
+      e.btnPlay.setAttribute("aria-label", "停止");
     } else {
       U.$(".icon--play", e.btnPlay).hidden = false;
-      U.$(".icon--pause", e.btnPlay).hidden = true;
+      U.$(".icon--stop", e.btnPlay).hidden = true;
       e.btnPlay.setAttribute("aria-label", "播放");
     }
   };

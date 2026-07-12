@@ -32,6 +32,110 @@
   --console-h: 200px;
 }
 
+/* ---- dark theme (绫波丽深色模式) ---- */
+body.dark-theme {
+  /* switch to the dark Rei background */
+  background-image: url('../img/bg-dark.jpg');
+}
+
+body.dark-theme .console {
+  /* dark frosted panel with visible border accent */
+  background: rgba(18, 26, 36, 0.88);
+  border-top: 1px solid rgba(168, 200, 216, 0.18);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, .55),
+              inset 0 1px 0 rgba(168, 200, 216, 0.06);
+}
+
+body.dark-theme .transport {
+  border-right-color: rgba(168, 200, 216, 0.12);
+}
+
+body.dark-theme .btn {
+  background: rgba(58, 74, 85, 0.55);
+  border-color: rgba(168, 200, 216, 0.22);
+  color: rgba(240, 237, 229, 0.9);
+}
+body.dark-theme .btn:hover:not(:disabled) {
+  background: var(--ayanami-red);
+  border-color: var(--ayanami-red);
+  color: #fff;
+}
+
+body.dark-theme .btn--ghost {
+  background: rgba(240, 237, 229, 0.14);
+  color: rgba(240, 237, 229, 0.9);
+  border-color: rgba(168, 200, 216, 0.25);
+}
+body.dark-theme .btn--ghost:hover {
+  background: rgba(240, 237, 229, 0.25);
+  color: #fff;
+  border-color: rgba(240, 237, 229, 0.5);
+}
+
+body.dark-theme .btn--icon {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(168, 200, 216, 0.22);
+  color: var(--ayanami-red);
+}
+body.dark-theme .btn--icon:hover {
+  background: rgba(196, 66, 58, 0.25);
+  border-color: var(--ayanami-red);
+}
+
+body.dark-theme .btn--step {
+  background: rgba(58, 74, 85, 0.4);
+  border-color: rgba(168, 200, 216, 0.2);
+  color: rgba(240, 237, 229, 0.35);
+}
+body.dark-theme .btn--step:hover {
+  background: rgba(168, 200, 216, 0.18);
+}
+body.dark-theme .btn--step.step--lit {
+  background: var(--stem);
+  color: #0E1620;
+  opacity: 0.85;
+}
+body.dark-theme .btn--step.step--active {
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .seek {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-theme .time {
+  color: rgba(240, 237, 229, 0.9);
+}
+
+body.dark-theme .topbar__track {
+  color: rgba(240, 237, 229, 0.7);
+}
+
+body.dark-theme .console .stem__label {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+body.dark-theme .transport__buttons .btn--icon {
+  color: rgba(240, 237, 229, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+}
+body.dark-theme .transport__buttons .btn--icon:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+body.dark-theme .btn--nav {
+  opacity: 0.65;
+  border-radius: 50% !important;
+}
+body.dark-theme .btn--nav:hover:not(:disabled) {
+  opacity: 1;
+}
+
 /* ---- reset ---- */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -73,7 +177,7 @@ body {
   touch-action: manipulation;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: background-color .12s linear, color .12s linear, border-color .12s linear, opacity .12s linear;
+  transition: background-color .4s ease, color .4s ease, border-color .4s ease, opacity .12s linear;
 }
 .btn:hover { background: var(--ayanami-red); border-color: var(--ayanami-red); color: #fff; }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
@@ -84,6 +188,7 @@ body {
   color: #000;
   border-color: rgba(240, 237, 229, 0.9);
   text-shadow: none;
+  transition: background-color .4s ease, color .4s ease, border-color .4s ease;
 }
 .btn--ghost:hover { background: #fff; color: #000; border-color: #fff; }
 
@@ -94,12 +199,13 @@ body {
   width: 3.5rem;
   height: 3.5rem;
   padding: 0;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.45);
   color: var(--ayanami-red);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 6px;
+  transition: background-color .4s ease, border-color .4s ease;
 }
-.btn--icon:hover { background: rgba(196, 66, 58, 0.2); border-color: var(--ayanami-red); color: var(--ayanami-red); }
+.btn--icon:hover { background: rgba(196, 66, 58, 0.22); border-color: var(--ayanami-red); color: var(--ayanami-red); }
 
 .btn--tag {
   width: 1.4rem;
@@ -168,6 +274,7 @@ body {
   font-family: var(--font-mono);
   font-size: .75rem;
   color: rgba(240, 237, 229, 0.75);
+  transition: color .4s ease;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   overflow: hidden;
@@ -189,6 +296,7 @@ body {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0;
+  transition: background .5s ease, border-color .5s ease, box-shadow .5s ease;
 }
 
 /* ---- 3a: transport (main body — vertical: seek centered, buttons below) ---- */
@@ -199,6 +307,7 @@ body {
   gap: .6rem;
   padding: .7rem 1.4rem;
   border-right: 1px solid rgba(0, 0, 0, 0.1);
+  transition: border-color .5s ease;
 }
 .transport__seek {
   display: flex;
@@ -210,8 +319,8 @@ body {
 .transport__buttons {
   display: flex;
   justify-content: center;
-  align-items: flex-end;
-  gap: .6rem;
+  align-items: center;
+  gap: .8rem;
   flex: none;
 }
 .time {
@@ -220,22 +329,46 @@ body {
   min-width: 4rem;
   text-align: center;
   color: var(--ayanami-red);
+  transition: color .4s ease;
 }
 
-/* transport buttons — all 4 in red */
+/* transport buttons — Kanye STEM PLAYER 3-circle layout */
 .transport__buttons .btn--icon {
   color: var(--ayanami-red);
+  background: rgba(196, 66, 58, 0.07);
+  border-color: rgba(196, 66, 58, 0.22);
+  border-radius: 50%;
+}
+.transport__buttons .btn--icon:hover {
+  background: rgba(196, 66, 58, 0.18);
+  border-color: var(--ayanami-red);
 }
 
-/* prev/next nav buttons — same height as play/stop, bottom-aligned */
+/* center play/stop button — large circle */
+.btn--center {
+  width: 4rem !important;
+  height: 4rem !important;
+}
+.btn--center svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* prev/next — small circles */
 .btn--nav {
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 2.6rem;
+  height: 2.6rem;
   opacity: .7;
+  border-radius: 50% !important;
 }
 .btn--nav:hover:not(:disabled) {
   opacity: 1;
 }
+.btn--nav svg {
+  width: 18px;
+  height: 18px;
+}
+
 
 /* ---- seek slider ---- */
 .seek {
@@ -243,11 +376,12 @@ body {
   height: 6px;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(196, 66, 58, 0.2);
+  background: rgba(196, 66, 58, 0.18);
   border: none;
   border-radius: 3px;
   touch-action: none;
   cursor: pointer;
+  transition: background .4s ease;
 }
 .seek::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -293,6 +427,7 @@ body {
   font-size: .65rem;
   letter-spacing: .08em;
   color: var(--stem);
+  transition: text-shadow .4s ease;
   width: 2.5rem;
   flex: none;
 }
@@ -347,21 +482,21 @@ body {
   flex: 1;
   min-width: 0;
   height: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(30, 42, 51, 0.18);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;
-  color: rgba(30, 42, 51, 0.4);
+  color: rgba(30, 42, 51, 0.5);
   cursor: pointer;
-  transition: background-color .12s, color .12s, transform .08s;
+  transition: background-color .4s ease, color .4s ease, transform .08s linear;
   -webkit-tap-highlight-color: transparent;
 }
 .btn--step:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.6);
 }
 .btn--step:active {
   transform: scale(0.94);
