@@ -11,12 +11,16 @@
  *  .onDemoSelect = null    // (demo: {id,name,bpm}) => void
  *  .onPrev = null           // () => void — go to previous track
  *  .onNext = null           // () => void — go to next track
+ *  .onPlaylistItem = null   // (index: number) => void — click a playlist item
+ *  .onPlaylistPlay = null   // (index: number) => void — click play button on item
  *  .bind()                 // query DOM + attach listeners (call once after DOM ready)
  *  .setState(s)             // 'loading'|'ready'|'playing'|'paused'|'stopped'|'ended'
  *  .setProgress(pos)       // called from engine.onTick
  *  .setDuration(dur)       // set seek.max + total time
  *  .setTrackLabel(name)
  *  .setNavState(canPrev, canNext)  // enable/disable prev/next buttons
+ *  .renderPlaylist(items, currentIndex)  // render playlist panel
+ *  .showPlaylistPanel() / .hidePlaylistPanel() / .togglePlaylistPanel()
  *  .openOverlay() / .closeOverlay()
  *    .renderDemos(demos)     // build demo buttons
  *    .showProcessing(msg, pct) / .hideProcessing()
@@ -34,6 +38,8 @@
     this.onDemoSelect = null;
     this.onPrev = null;
     this.onNext = null;
+    this.onPlaylistItem = null;
+    this.onPlaylistPlay = null;
 
     this._programmaticSeek = false;
     this._seeking = false;
@@ -68,6 +74,13 @@
     e.demoList = U.$("#demo-list");
     e.demoNote = U.$("#demo-note");
     e.toast = U.$("#toast");
+
+    // ---- playlist panel ----
+    e.btnPlaylist = U.$("#btn-playlist");
+    e.plPanel = U.$("#pl-panel");
+    e.plClose = U.$("#pl-close");
+    e.plItems = U.$("#pl-items");
+    e.plCount = U.$("#pl-count");
 
     // ---- stem volume step buttons (5 discrete levels: 0/25/50/75/100) ----
     // Supports both click (tap) and drag-to-scrub across buttons.
@@ -188,6 +201,10 @@
     U.on(e.overlayClose, "click", function () { self.closeOverlay(); });
     U.on(U.$(".overlay__backdrop"), "click", function () { self.closeOverlay(); });
 
+    // ---- playlist panel ----
+    U.on(e.btnPlaylist, "click", function () { self.togglePlaylistPanel(); });
+    U.on(e.plClose, "click", function () { self.hidePlaylistPanel(); });
+
     // Escape to close overlay
     U.on(document, "keydown", function (ev) {
       if (ev.key === "Escape" && !e.overlay.hidden) {
@@ -279,6 +296,97 @@
     var e = this.el;
     e.btnPrev.disabled = !canPrev;
     e.btnNext.disabled = !canNext;
+  };
+
+  // ---- playlist panel ----
+
+  var PL_STATUS_TEXT = {
+    pending: "等待中",
+    processing: "分离中…",
+    ready: "就绪",
+    playing: "播放中",
+    error: "失败"
+  };
+
+  StemPlayerUI.prototype.renderPlaylist = function (items, currentIndex) {
+    var self = this;
+    var e = this.el;
+    e.plItems.innerHTML = "";
+    e.plCount.textContent = (items || []).length;
+
+    if (!items || !items.length) {
+      var empty = document.createElement("p");
+      empty.className = "netease__empty";
+      empty.style.cssText = "padding:1.5rem 0;text-align:center;opacity:.4;font-size:.7rem";
+      empty.textContent = "列表为空";
+      e.plItems.appendChild(empty);
+      return;
+    }
+
+    items.forEach(function (item, idx) {
+      var isActive = idx === currentIndex;
+      var rawStatus = item.status || "ready";
+      // Show "playing" only if the current track is actually ready;
+      // otherwise show the real status (processing, pending, etc.)
+      var status = isActive && rawStatus === "ready" ? "playing" : rawStatus;
+
+      var row = document.createElement("div");
+      row.className = "pl-item" + (isActive ? " pl-item--active" : "");
+      row.setAttribute("data-index", String(idx));
+
+      var num = document.createElement("span");
+      num.className = "pl-item__num nums";
+      num.textContent = idx + 1;
+      row.appendChild(num);
+
+      var info = document.createElement("div");
+      info.className = "pl-item__info";
+
+      var name = document.createElement("span");
+      name.className = "pl-item__name";
+      name.textContent = item.name || "未知曲目";
+      info.appendChild(name);
+
+      var stEl = document.createElement("span");
+      stEl.className = "pl-item__status pl-item__status--" + status;
+      stEl.textContent = PL_STATUS_TEXT[status] || status;
+      info.appendChild(stEl);
+      row.appendChild(info);
+
+      var playBtn = document.createElement("button");
+      playBtn.className = "pl-item__play";
+      playBtn.type = "button";
+      playBtn.setAttribute("aria-label", "播放 " + (item.name || ""));
+      playBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M6 4 L20 12 L6 20 Z" fill="currentColor"/></svg>';
+      if (status === "processing") playBtn.disabled = true;
+      U.on(playBtn, "click", function (ev) {
+        ev.stopPropagation();
+        if (typeof self.onPlaylistPlay === "function") self.onPlaylistPlay(idx);
+      });
+      row.appendChild(playBtn);
+
+      U.on(row, "click", function () {
+        if (typeof self.onPlaylistItem === "function") self.onPlaylistItem(idx);
+      });
+
+      e.plItems.appendChild(row);
+    });
+  };
+
+  StemPlayerUI.prototype.showPlaylistPanel = function () {
+    this.el.plPanel.hidden = false;
+  };
+
+  StemPlayerUI.prototype.hidePlaylistPanel = function () {
+    this.el.plPanel.hidden = true;
+  };
+
+  StemPlayerUI.prototype.togglePlaylistPanel = function () {
+    this.el.plPanel.hidden = !this.el.plPanel.hidden;
+  };
+
+  StemPlayerUI.prototype.setPlaylistButton = function (visible) {
+    this.el.btnPlaylist.hidden = !visible;
   };
 
   // ---- overlay ----

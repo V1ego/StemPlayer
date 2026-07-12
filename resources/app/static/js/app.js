@@ -4,6 +4,10 @@
  * Owns async flows: demo synthesis, file upload + Demucs separation polling.
  * Keyboard: Space = play/pause, Escape = close overlay.
  *
+ * Playlist panel: shows all queued tracks with status indicators.
+ * Background pre-separation: while current track plays, next track is
+ * separated in the background so it's ready when the user advances.
+ *
  * Per plan D6: transport visuals are driven solely by engine.onState.
  * Per plan D7: engine.onEnd resets playhead via seek(0) for replay safety.
  */
@@ -14,11 +18,15 @@
   var Engine = window.StemPlayerEngine;
 
   var engine, viz, ui, neteaseUI;
-  var pollTimer = null;
   var busy = false;
 
   // ---- playlist queue ----
-  // Entry types: { type: 'job', jobId, name } | { type: 'demo', demo: {id,name,bpm} }
+  // Entry types:
+  //   { type: 'demo', demo: {id,name,bpm}, status: 'ready' }
+  //   { type: 'job', jobId, name, status: 'processing'|'ready', stemsUrl }
+  //   { type: 'netease', songId, name, artist,
+  //     status: 'pending'|'processing'|'ready'|'error',
+  //     jobId, stemsUrl, _promise }
   var playlist = [];
   var currentIndex = -1;
 
@@ -40,6 +48,7 @@
     neteaseUI.bind();
     neteaseUI.onSongSelect = handleNetEaseSong;
     neteaseUI.onBatchComplete = handleBatchComplete;
+    neteaseUI.onPlayAll = handlePlayAll;
 
     // ---- engine callbacks -> UI (D6) ----
     engine.onTick = function (pos) {
@@ -47,10 +56,16 @@
     };
     engine.onState = function (s) {
       ui.setState(s);
+      // When playback starts, pre-separate the next track in background
+      if (s === "playing") prefetchNext();
     };
     engine.onEnd = function () {
       ui.setState("ended");
       engine.seek(0);  // D7: reset playhead so replay works
+      // Auto-advance to next track if available
+      if (currentIndex >= 0 && currentIndex < playlist.length - 1) {
+        loadTrack(currentIndex + 1, true);
+      }
     };
 
     // ---- UI intents -> app async flows ----
@@ -58,6 +73,8 @@
     ui.onDemoSelect = handleDemo;
     ui.onPrev = handlePrev;
     ui.onNext = handleNext;
+    ui.onPlaylistItem = handlePlaylistItem;
+    ui.onPlaylistPlay = handlePlaylistPlay;
 
     // ---- keyboard (D6) ----
     U.on(document, "keydown", onKey);
@@ -103,115 +120,290 @@
 
   // ---- playlist helpers ----
 
+  function renderPlaylist() {
+    ui.renderPlaylist(playlist, currentIndex);
+  }
+
   function updateNavButtons() {
     ui.setNavState(currentIndex > 0, currentIndex < playlist.length - 1);
   }
 
-  function loadTrack(index) {
+  function isCurrentEntry(entry) {
+    return currentIndex >= 0 && playlist[currentIndex] === entry;
+  }
+
+  /**
+   * Poll /api/status/<jobId> until the job is done or errors.
+   * Returns a Promise that resolves with the status object (includes stems).
+   * onProgress is called with progress percentage for foreground display.
+   */
+  function pollJobStatus(jobId, onProgress) {
+    return new Promise(function (resolve, reject) {
+      function check() {
+        U.fetchJSON("/api/status/" + jobId).then(function (s) {
+          if (s.status === "done" && s.stems) {
+            resolve(s);
+          } else if (s.status === "error") {
+            reject(new Error(s.error || "分离失败"));
+          } else {
+            if (onProgress) onProgress(s.progress || 0);
+            setTimeout(check, 1500);
+          }
+        }).catch(reject);
+      }
+      check();
+    });
+  }
+
+  /**
+   * Ensure a playlist entry is separated and ready to play.
+   * - If already ready (stemsUrl cached): resolve immediately.
+   * - If a separation promise is already running: return it.
+   * - For 'job' type: poll the existing server job.
+   * - For 'netease' type with 'pending' status: start separation then poll.
+   * Returns a Promise<stemsUrl>.
+   */
+  function ensureSeparated(entry) {
+    if (entry.stemsUrl) return Promise.resolve(entry.stemsUrl);
+    if (entry.status === "error") return Promise.reject(new Error(entry.error || "分离失败"));
+    if (entry._promise) return entry._promise;
+
+    if (entry.type === "job") {
+      entry._promise = pollJobStatus(entry.jobId, function (progress) {
+        if (isCurrentEntry(entry)) ui.showProcessing("分离中…", progress);
+      }).then(function (s) {
+        entry.status = "ready";
+        entry.stemsUrl = s.stems;
+        renderPlaylist();
+        entry._promise = null;
+        return s.stems;
+      }).catch(function (err) {
+        entry.status = "error";
+        entry.error = err.message;
+        renderPlaylist();
+        entry._promise = null;
+        throw err;
+      });
+      return entry._promise;
+    }
+
+    if (entry.type === "netease" && entry.status === "pending") {
+      entry.status = "processing";
+      renderPlaylist();
+
+      var nameParam = encodeURIComponent(
+        entry.name + (entry.artist ? " - " + entry.artist : "")
+      );
+      entry._promise = fetch(
+        "/api/netease/separate/" + entry.songId + "?name=" + nameParam,
+        { method: "POST" }
+      ).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok || data.error) throw new Error(data.error || "HTTP " + r.status);
+          return data;
+        });
+      }).then(function (data) {
+        entry.jobId = data.job_id;
+        if (data.track) entry.name = data.track;
+        renderPlaylist();
+        return pollJobStatus(entry.jobId, function (progress) {
+          if (isCurrentEntry(entry)) ui.showProcessing("分离中…", progress);
+        });
+      }).then(function (s) {
+        entry.status = "ready";
+        entry.stemsUrl = s.stems;
+        renderPlaylist();
+        entry._promise = null;
+        return s.stems;
+      }).catch(function (err) {
+        entry.status = "error";
+        entry.error = err.message;
+        renderPlaylist();
+        entry._promise = null;
+        throw err;
+      });
+      return entry._promise;
+    }
+
+    // Fallback: treat as ready
+    return Promise.resolve(null);
+  }
+
+  /**
+   * Load a track by index. If autoPlay is true, start playback after loading.
+   * For entries that aren't separated yet, starts/reuses separation first.
+   */
+  function loadTrack(index, autoPlay) {
     if (busy || index < 0 || index >= playlist.length) return;
-    var track = playlist[index];
+    var entry = playlist[index];
     currentIndex = index;
     updateNavButtons();
+    renderPlaylist();
 
-    if (track.type === "demo") {
+    // ---- demo: synth on demand ----
+    if (entry.type === "demo") {
       busy = true;
-      ui.showProcessing("合成 " + track.demo.name + " 中…", null);
-      window.DemoSynth.build(track.demo.id).then(function (res) {
+      ui.showProcessing("合成 " + entry.demo.name + " 中…", null);
+      window.DemoSynth.build(entry.demo.id).then(function (res) {
         engine.loadStemBuffers({
           vocals: res.vocals, drums: res.drums, bass: res.bass, other: res.other
         });
         ui.setDuration(engine.duration);
-        ui.setTrackLabel(track.demo.name + "  -  " + res.bpm + " BPM");
+        ui.setTrackLabel(entry.demo.name + "  -  " + res.bpm + " BPM");
         ui.hideProcessing();
         ui.closeOverlay();
         busy = false;
+        entry.status = "ready";
+        renderPlaylist();
+        if (autoPlay) engine.play();
+        // prefetchNext is called by engine.onState("playing") — no need to duplicate
       }).catch(function (err) {
         ui.showError("示例加载失败：" + (err.message || err));
         ui.hideProcessing();
         busy = false;
       });
-    } else if (track.type === "job") {
-      busy = true;
-      ui.showProcessing("加载 " + track.name + " 中…", 0);
-      U.fetchJSON("/api/status/" + track.jobId).then(function (s) {
-        if (s.status === "done" && s.stems) {
-          ui.showProcessing("加载分轨中…", 100);
-          return engine.loadStems(s.stems).then(function () {
-            ui.setDuration(engine.duration);
-            ui.setTrackLabel(track.name);
-            ui.hideProcessing();
-            ui.closeOverlay();
-            busy = false;
-            if (neteaseUI) neteaseUI.setBusy(false);
-          });
-        } else if (s.status === "error") {
-          throw new Error(s.error || "分离失败");
-        } else {
-          // Still processing — poll
-          ui.setTrackLabel(track.name);
-          ui.showProcessing("分离中…", s.progress || 0);
-          pollJob(track.jobId, track.name);
-        }
-      }).catch(function (err) {
-        ui.showError(err.message || "加载失败");
-        ui.hideProcessing();
-        busy = false;
-        if (neteaseUI) neteaseUI.setBusy(false);
-      });
+      return;
     }
+
+    // ---- job / netease: ensure separated, then load ----
+    busy = true;
+
+    // If already ready with stems cached, load immediately
+    if (entry.stemsUrl) {
+      loadStemsAndPlay(entry, autoPlay);
+      return;
+    }
+
+    // Show processing UI for foreground track
+    ui.showProcessing("加载 " + entry.name + " 中…", 0);
+
+    ensureSeparated(entry).then(function (stems) {
+      loadStemsAndPlay(entry, autoPlay);
+    }).catch(function (err) {
+      ui.showError(err.message || "加载失败");
+      ui.hideProcessing();
+      busy = false;
+      if (neteaseUI) neteaseUI.setBusy(false);
+    });
+  }
+
+  /**
+   * Load stem URLs into the engine and optionally auto-play.
+   */
+  function loadStemsAndPlay(entry, autoPlay) {
+    ui.showProcessing("加载分轨中…", 100);
+    engine.loadStems(entry.stemsUrl).then(function () {
+      ui.setDuration(engine.duration);
+      ui.setTrackLabel(entry.name);
+      ui.hideProcessing();
+      ui.closeOverlay();
+      busy = false;
+      if (neteaseUI) neteaseUI.setBusy(false);
+      renderPlaylist();
+      if (autoPlay) engine.play();
+      // prefetchNext is called by engine.onState("playing") — no need to duplicate here
+    }).catch(function (err) {
+      ui.showError(err.message || "加载分轨失败");
+      ui.hideProcessing();
+      busy = false;
+      if (neteaseUI) neteaseUI.setBusy(false);
+    });
+  }
+
+  /**
+   * Background pre-separation: while the current track plays,
+   * start separating the next track so it's ready when needed.
+   */
+  function prefetchNext() {
+    if (currentIndex < 0 || currentIndex >= playlist.length - 1) return;
+    var next = playlist[currentIndex + 1];
+    if (!next) return;
+    if (next.stemsUrl || next.status === "ready" || next._promise) return;
+
+    // Fire and forget — don't block UI
+    ensureSeparated(next).catch(function (err) {
+      // Error already handled in ensureSeparated (sets status to 'error')
+      console.warn("[playlist] background prefetch failed:", err.message);
+    });
   }
 
   function handlePrev() {
     if (busy || currentIndex <= 0) return;
-    loadTrack(currentIndex - 1);
+    loadTrack(currentIndex - 1, false);
   }
 
   function handleNext() {
     if (busy || currentIndex >= playlist.length - 1) return;
-    loadTrack(currentIndex + 1);
+    loadTrack(currentIndex + 1, false);
+  }
+
+  // ---- playlist panel interactions ----
+
+  function handlePlaylistItem(index) {
+    if (busy || index === currentIndex) return;
+    loadTrack(index, false);  // switch without auto-play
+  }
+
+  function handlePlaylistPlay(index) {
+    if (busy) return;
+    if (index === currentIndex) {
+      // Already current track — just play/pause
+      if (engine.playing) engine.pause();
+      else engine.play();
+      return;
+    }
+    loadTrack(index, true);  // load and auto-play
   }
 
   // ---- demo flow ----
 
   function handleDemo(demo) {
     if (busy) return;
-    playlist = [{ type: "demo", demo: demo }];
+    playlist = [{ type: "demo", demo: demo, name: demo.name, status: "ready" }];
     currentIndex = -1;
-    loadTrack(0);
+    ui.setPlaylistButton(true);
+    renderPlaylist();
+    loadTrack(0, false);
   }
 
-  // ---- NetEase song flow ----
+  // ---- NetEase song flow (single song) ----
 
   function handleNetEaseSong(song) {
     if (busy) return;
-    busy = true;
-    neteaseUI.setBusy(true);
-    ui.showProcessing("下载 " + song.name + " 中…", 0);
+    playlist = [{
+      type: "netease",
+      songId: song.id,
+      name: song.name,
+      artist: song.artist,
+      status: "pending"
+    }];
+    currentIndex = -1;
+    ui.setPlaylistButton(true);
+    ui.showPlaylistPanel();
+    renderPlaylist();
+    loadTrack(0, true);  // auto-play
+  }
 
-    var name = encodeURIComponent(song.name + " - " + song.artist);
-    fetch("/api/netease/separate/" + song.id + "?name=" + name, {
-      method: "POST",
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (data) {
-        if (!r.ok) {
-          var msg = data.error || "";
-          throw new Error(msg || "下载失败（HTTP " + r.status + "），请稍后重试或更换歌曲");
-        }
-        if (data.error) throw new Error(data.error);
-        return data;
-      });
-    }).then(function (data) {
-      var trackName = data.track || song.name;
-      playlist = [{ type: "job", jobId: data.job_id, name: trackName }];
-      currentIndex = -1;
-      busy = false;  // loadTrack will re-set busy
-      loadTrack(0);
-    }).catch(function (err) {
-      ui.showError(err.message || "下载失败");
-      ui.hideProcessing();
-      busy = false;
-      neteaseUI.setBusy(false);
+  // ---- NetEase play all ----
+
+  function handlePlayAll(tracks) {
+    if (busy) return;
+    if (!tracks || !tracks.length) return;
+    playlist = tracks.map(function (track) {
+      return {
+        type: "netease",
+        songId: track.id,
+        name: track.name,
+        artist: track.artist,
+        status: "pending"
+      };
     });
+    currentIndex = -1;
+    ui.setPlaylistButton(true);
+    ui.showPlaylistPanel();
+    renderPlaylist();
+    ui.closeOverlay();
+    loadTrack(0, true);  // auto-play first track
   }
 
   // ---- batch separation complete ----
@@ -220,10 +412,18 @@
     if (!jobs || !jobs.length) return;
     // Add all batch jobs to the playlist for prev/next navigation
     playlist = jobs.map(function (job) {
-      return { type: "job", jobId: job.job_id, name: job.track || "批量分离" };
+      return {
+        type: "job",
+        jobId: job.job_id,
+        name: job.track || "批量分离",
+        status: "processing"
+      };
     });
     currentIndex = -1;
-    loadTrack(0);
+    ui.setPlaylistButton(true);
+    ui.showPlaylistPanel();
+    renderPlaylist();
+    loadTrack(0, false);
   }
 
   // ---- upload + polling flow ----
@@ -248,53 +448,22 @@
       });
     }).then(function (data) {
       var trackName = data.track || "已上传曲目";
-      playlist = [{ type: "job", jobId: data.job_id, name: trackName }];
+      playlist = [{
+        type: "job",
+        jobId: data.job_id,
+        name: trackName,
+        status: "processing"
+      }];
       currentIndex = -1;
+      ui.setPlaylistButton(true);
+      renderPlaylist();
       busy = false;  // loadTrack will re-set busy
-      loadTrack(0);
+      loadTrack(0, false);
     }).catch(function (err) {
       ui.showError(err.message || "上传失败");
       ui.hideProcessing();
       busy = false;
     });
-  }
-
-  function pollJob(jobId, trackName) {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(function () {
-      U.fetchJSON("/api/status/" + jobId).then(function (s) {
-        if (s.status === "done") {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          ui.showProcessing("加载分轨中…", 100);
-          return engine.loadStems(s.stems).then(function () {
-            ui.setDuration(engine.duration);
-            if (trackName) ui.setTrackLabel(trackName);
-            ui.hideProcessing();
-            ui.closeOverlay();
-            busy = false;
-            if (neteaseUI) neteaseUI.setBusy(false);
-            updateNavButtons();
-          });
-        }
-        if (s.status === "error") {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          ui.showError(s.error || "分离失败");
-          ui.hideProcessing();
-          busy = false;
-          if (neteaseUI) neteaseUI.setBusy(false);
-        } else {
-          ui.showProcessing("分离中…", s.progress || 0);
-        }
-      }).catch(function (err) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        ui.showError(err.message || "状态轮询失败");
-        ui.hideProcessing();
-        busy = false;
-      });
-    }, 1500);
   }
 
   // ---- demo list ----

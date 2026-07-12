@@ -7,6 +7,8 @@
  *   new NetEaseUI(uiInstance)
  *     .bind()                      // attach DOM listeners
  *     .onSongSelect = null         // (song: {id, name, artist}) => void
+ *     .onBatchComplete = null      // (jobs: [{job_id, track}]) => void
+ *     .onPlayAll = null            // (tracks: [{id, name, artist}]) => void
  *     .setBusy(boolean)            // show/hide processing overlay
  */
 (function (global) {
@@ -30,6 +32,7 @@
     this.ui = ui;
     this.onSongSelect = null;
     this.onBatchComplete = null;
+    this.onPlayAll = null;
     this._unikey = null;
     this._qrPollTimer = null;
     this._currentPlaylist = null;
@@ -65,6 +68,7 @@
     e.batchFill = U.$("#netease-batch-fill");
     e.batchPct = U.$("#netease-batch-pct");
     e.batchMsg = U.$("#netease-batch-msg");
+    e.playAllBtn = U.$("#netease-play-all-btn");
 
     e.tabBtns.forEach(function (btn) {
       U.on(btn, "click", function () { self._switchTab(btn.getAttribute("data-tab")); });
@@ -81,6 +85,7 @@
       e.batchBtn.disabled = count === 0 || self._busy;
     });
     U.on(e.batchBtn, "click", function () { self._startBatchSeparation(); });
+    U.on(e.playAllBtn, "click", function () { self._playAll(); });
 
     this._checkStatus();
   };
@@ -337,10 +342,12 @@
 
     if (!tracks.length) {
       e.tracks.innerHTML = '<p class="netease__empty">歌单为空</p>';
+      e.playAllBtn.disabled = true;
       return;
     }
 
     self._currentTracks = tracks;
+    e.playAllBtn.disabled = false;
 
     tracks.forEach(function (track, idx) {
       var item = el("div", "track-item");
@@ -462,6 +469,14 @@
   NetEaseUI.prototype._selectSong = function (song) {
     if (this._busy) return;
     if (typeof this.onSongSelect === "function") this.onSongSelect(song);
+  };
+
+  // ---- Play all tracks in current playlist ----
+
+  NetEaseUI.prototype._playAll = function () {
+    if (this._busy) return;
+    if (!this._currentTracks || !this._currentTracks.length) return;
+    if (typeof this.onPlayAll === "function") this.onPlayAll(this._currentTracks);
   };
 
   NetEaseUI.prototype.setBusy = function (busy) {

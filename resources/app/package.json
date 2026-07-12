@@ -41,13 +41,12 @@
         ]
       },
       {
-        "from": ".ffmpeg",
+        "from": "../.ffmpeg",
         "to": ".ffmpeg",
         "filter": [
           "**/*",
           "!**/doc/**",
           "!**/include/**",
-          "!**/lib/**",
           "!**/presets/**"
         ]
       }

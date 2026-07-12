@@ -30,6 +30,7 @@
       </svg>
     </div>
     <span class="topbar__track nums" id="track-label" aria-live="polite">未加载曲目</span>
+    <button id="btn-playlist" class="btn btn--ghost" type="button" aria-label="播放列表" hidden>列表</button>
     <button id="btn-source" class="btn btn--ghost" type="button" aria-label="打开来源菜单">来源</button>
   </header>
 
@@ -119,6 +120,20 @@
     </section>
   </main>
 
+  <!-- L3.5: playlist panel (right side, above console) -->
+  <aside class="pl-panel" id="pl-panel" hidden>
+    <div class="pl-panel__head">
+      <span class="pl-panel__title">播放列表</span>
+      <span class="pl-panel__count nums" id="pl-count">0</span>
+      <button id="pl-close" class="btn btn--icon btn--small" type="button" aria-label="关闭列表">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M5 5 L19 19 M19 5 L5 19" stroke="currentColor" stroke-width="2" fill="none"/>
+        </svg>
+      </button>
+    </div>
+    <div class="pl-panel__body" id="pl-items"></div>
+  </aside>
+
   <!-- L4: source overlay (upload + demos) -->
   <div class="overlay" id="source-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" hidden>
     <div class="overlay__backdrop" data-close></div>
@@ -198,6 +213,7 @@
                 </svg>
               </button>
               <span id="netease-playlist-name" class="netease__playlist-name"></span>
+              <button id="netease-play-all-btn" class="btn btn--tag netease__play-all-btn" type="button">播放全部</button>
             </div>
             <div class="netease__batch-bar">
               <label class="netease__select-all">

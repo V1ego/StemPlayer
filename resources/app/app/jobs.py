@@ -60,12 +60,34 @@ def _run_demucs(job_id: str, input_path: str, out_root: str) -> dict[str, str]:
         text=True,
         encoding="utf-8",
         errors="replace",
-        bufsize=1,
     )
-    for line in iter(proc.stdout.readline, ""):
+
+    # Read output in chunks and handle both \r and \n as line terminators.
+    # Demucs uses tqdm progress bars that refresh in-place with \r (not \n),
+    # so readline() would block until the very end. We iterate characters
+    # across buffered chunks to parse real-time progress.
+    line_buf: list[str] = []
+    while True:
+        chunk = proc.stdout.read(4096)
+        if not chunk:
+            break
+        for ch in chunk:
+            if ch in ("\n", "\r"):
+                line = "".join(line_buf)
+                line_buf = []
+                m = re.search(r"(\d+)\s*%", line)
+                if m:
+                    _set(job_id, progress=int(m.group(1)))
+            else:
+                line_buf.append(ch)
+
+    # Flush any remaining characters after EOF
+    if line_buf:
+        line = "".join(line_buf)
         m = re.search(r"(\d+)\s*%", line)
         if m:
             _set(job_id, progress=int(m.group(1)))
+
     proc.wait()
 
     stems = collect_stems(out_root, MODEL, USE_MP3)
