@@ -38,6 +38,9 @@
     this._currentPlaylist = null;
     this._currentTracks = null;
     this._busy = false;
+    this._refreshing = false;
+    this._tracksPollTimer = null;
+    this._tracksPollInterval = 30000; // 30s auto-refresh of open playlist
     this.el = {};
   }
 
@@ -69,6 +72,7 @@
     e.batchPct = U.$("#netease-batch-pct");
     e.batchMsg = U.$("#netease-batch-msg");
     e.playAllBtn = U.$("#netease-play-all-btn");
+    e.refreshBtn = U.$("#netease-refresh-btn");
 
     e.tabBtns.forEach(function (btn) {
       U.on(btn, "click", function () { self._switchTab(btn.getAttribute("data-tab")); });
@@ -76,6 +80,7 @@
     U.on(e.qrRefresh, "click", function () { self._createQR(); });
     U.on(e.logoutBtn, "click", function () { self._logout(); });
     U.on(e.backBtn, "click", function () { self._showPlaylists(); });
+    U.on(e.refreshBtn, "click", function () { self._refreshTracks(); });
     U.on(e.selectAll, "change", function () {
       var checked = e.selectAll.checked;
       var boxes = U.$$(".track-item__check", e.tracks);
@@ -87,7 +92,41 @@
     U.on(e.batchBtn, "click", function () { self._startBatchSeparation(); });
     U.on(e.playAllBtn, "click", function () { self._playAll(); });
 
+    // Auto-refresh on tab/window visibility return — only if the user is
+    // currently looking at a playlist's tracks inside the open overlay.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) return;
+      if (!self._isTracksViewActive()) return;
+      self._refreshTracks({ silent: true });
+    });
+
+    // Periodic polling for true real-time updates. The callback gates on
+    // _isTracksViewActive() so it stays a no-op when the user isn't looking
+    // at a playlist's tracks. Paused while the tab is hidden to save requests.
+    this._tracksPollTimer = setInterval(function () {
+      if (document.hidden) return;
+      if (!self._isTracksViewActive()) return;
+      self._refreshTracks({ silent: true });
+    }, this._tracksPollInterval);
+
     this._checkStatus();
+  };
+
+  /** True only when the user is actually looking at a netease playlist's
+   *  tracks: overlay open, netease tab active, tracks view visible, and no
+   *  batch separation / refresh already in flight. */
+  NetEaseUI.prototype._isTracksViewActive = function () {
+    var e = this.el;
+    if (this._busy || this._refreshing) return false;
+    if (!this._currentPlaylist || e.tracksView.hidden) return false;
+    var neteaseActive = false;
+    e.tabPanels.forEach(function (p) {
+      if (p.getAttribute("data-panel") === "netease" && !p.hidden) neteaseActive = true;
+    });
+    if (!neteaseActive) return false;
+    var ov = this.ui && this.ui.el && this.ui.el.overlay;
+    if (!ov || ov.hidden) return false;
+    return true;
   };
 
   NetEaseUI.prototype._updateBatchCount = function () {
@@ -99,6 +138,7 @@
   };
 
   NetEaseUI.prototype._switchTab = function (tabName) {
+    var self = this;
     var e = this.el;
     e.tabBtns.forEach(function (btn) {
       var active = btn.getAttribute("data-tab") === tabName;
@@ -110,6 +150,13 @@
       panel.hidden = !show;
       panel.classList.toggle("tab-panel--active", show);
     });
+    // Returning to the netease tab while a playlist's tracks are on screen:
+    // silently refresh so newly-added/removed songs show up without losing
+    // the user's current checkbox selection.
+    if (tabName === "netease" && !e.tracksView.hidden && self._currentPlaylist
+        && !self._busy && !self._refreshing) {
+      self._refreshTracks({ silent: true });
+    }
   };
 
   // ---- Login status ----
@@ -321,14 +368,87 @@
     e.playlistName.textContent = playlist.name;
     e.tracks.innerHTML = '<p class="netease__loading">加载歌曲中…</p>';
 
-    U.fetchJSON("/api/netease/playlist/" + playlist.id).then(function (data) {
+    this._loadTracks({ preserveSelection: false });
+  };
+
+  /**
+   * Fetch tracks for _currentPlaylist and render them.
+   * opts.preserveSelection — if true, re-check songs whose IDs were selected
+   *   before the fetch (so a refresh doesn't wipe the user's batch selection).
+   * opts.silent — if true, keep the current list visible during the fetch
+   *   instead of showing the "加载歌曲中…" placeholder, and swallow network
+   *   errors so an auto-refresh failure doesn't destroy the visible list.
+   * opts.onDone — optional callback invoked after success or failure.
+   */
+  NetEaseUI.prototype._loadTracks = function (opts) {
+    var self = this;
+    var e = this.el;
+    if (!this._currentPlaylist) return;
+    opts = opts || {};
+
+    // Snapshot selected song IDs before re-render so we can restore them.
+    var selectedIds = [];
+    if (opts.preserveSelection && this._currentTracks) {
+      U.$$(".track-item__check", e.tracks).forEach(function (box) {
+        if (!box.checked) return;
+        var idx = parseInt(box.getAttribute("data-track-idx"), 10);
+        if (self._currentTracks[idx]) selectedIds.push(self._currentTracks[idx].id);
+      });
+    }
+
+    if (!opts.silent) {
+      e.tracks.innerHTML = '<p class="netease__loading">加载歌曲中…</p>';
+    }
+
+    U.fetchJSON("/api/netease/playlist/" + this._currentPlaylist.id).then(function (data) {
       if (data.error) {
-        e.tracks.innerHTML = '<p class="netease__error">加载失败: ' + data.error + '</p>';
+        if (!opts.silent) {
+          e.tracks.innerHTML = '<p class="netease__error">加载失败: ' + data.error + '</p>';
+        }
         return;
       }
       self._renderTracks(data.tracks || []);
+      // Restore selection by song ID (newly-added songs start unchecked,
+      // deleted songs simply aren't there to re-check).
+      if (selectedIds.length > 0 && self._currentTracks) {
+        U.$$(".track-item__check", e.tracks).forEach(function (box) {
+          var idx = parseInt(box.getAttribute("data-track-idx"), 10);
+          if (self._currentTracks[idx] && selectedIds.indexOf(self._currentTracks[idx].id) !== -1) {
+            box.checked = true;
+          }
+        });
+        self._updateBatchCount();
+      }
     }).catch(function (err) {
-      e.tracks.innerHTML = '<p class="netease__error">加载失败: ' + (err.message || err) + '</p>';
+      if (!opts.silent) {
+        e.tracks.innerHTML = '<p class="netease__error">加载失败: ' + (err.message || err) + '</p>';
+      }
+    }).then(function () {
+      if (opts.onDone) opts.onDone();
+    });
+  };
+
+  /**
+   * Refresh the currently-open playlist's tracks. Used by both the manual
+   * refresh button and the auto-refresh on visibility/tab return. Spins the
+   * refresh icon while in flight and preserves the user's checkbox selection.
+   */
+  NetEaseUI.prototype._refreshTracks = function (opts) {
+    var self = this;
+    var e = this.el;
+    if (!this._currentPlaylist || this._refreshing) return;
+    opts = opts || {};
+    this._refreshing = true;
+    e.refreshBtn.classList.add("netease__refresh-tracks-btn--loading");
+    e.refreshBtn.disabled = true;
+    this._loadTracks({
+      preserveSelection: true,
+      silent: !!opts.silent,
+      onDone: function () {
+        e.refreshBtn.classList.remove("netease__refresh-tracks-btn--loading");
+        e.refreshBtn.disabled = false;
+        self._refreshing = false;
+      }
     });
   };
 

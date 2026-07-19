@@ -1,5 +1,24 @@
 # 更新日志
 
+## v1.2.0 — Apple Design 重塑 (2026-07-17)
+
+### ✨ 新功能
+- **网易云歌单实时刷新**：手动刷新按钮（带旋转动画）+ 30 秒自动轮询 + 标签页可见时智能刷新，切回标签页自动同步最新歌单
+- **NSIS 安装器构建**：新增 `build:installer` 脚本与 nsis target，支持自定义安装路径、创建桌面/开始菜单快捷方式
+- **可访问性兜底**：支持 `prefers-reduced-motion`、`prefers-reduced-transparency`、`prefers-contrast` 三种无障碍偏好
+
+### 🎨 视觉优化
+- **Apple Design 重写**：遵循材料分层、字体光学尺寸、弹簧曲线运动、即时 `:active` 反馈四项原则完整重写 style.css
+- **材料分层**：topbar 轻模糊 / console 中模糊 / overlay 重模糊，权重编码视觉层级，每层顶部带亮边模拟光线
+- **保留用户偏好布局**：垂直音轨 + 横向控制元素、毛玻璃分段音量按钮、激活刻度数字加粗高亮
+- **绫波丽配色**：象牙白 `#F0EDE5` / 红眸 `#C4423A` / 淡蓝发色 `#A8C8D8` / 暖金 `#D8C9A8`，低对比度风格
+
+### 🐛 问题修复
+- **背景图多层渲染**：改用 `background` 简写为每层显式声明 `size/position/repeat`，修复 `background-image` 多值列表导致的深色模式背景图消失
+- **浅色模式对比度**：`--text-primary` 在浅色模式改为深墨色 `rgba(30, 42, 51, 0.95)`，topbar 加象牙白磨砂底，修复按钮/底栏 prev-next 同色隐形
+- **主题切换按钮图标**：移除 HTML `hidden` 属性与 JS `updateThemeIcon()` 调用，改用纯 CSS 特异性控制太阳/月亮图标切换，规避 `[hidden] { display: none !important }` 压过普通 `display` 规则的问题
+- **uv 安装日志**：加入 `.gitignore` 忽略 `*.log`
+
 ## v1.1.0 — 绫波分轨 (2026-07-12)
 
 ### ✨ 新功能

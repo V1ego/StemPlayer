@@ -130,20 +130,10 @@
     }
     var btn = U.$("#btn-theme");
     if (!btn) return;
-    updateThemeIcon();
     U.on(btn, "click", function () {
       body.classList.toggle("dark-theme");
       localStorage.setItem("stem-theme", body.classList.contains("dark-theme") ? "dark" : "light");
-      updateThemeIcon();
     });
-  }
-
-  function updateThemeIcon() {
-    var isDark = document.body.classList.contains("dark-theme");
-    var lightIcon = document.querySelector(".icon--light");
-    var darkIcon = document.querySelector(".icon--dark");
-    if (lightIcon) lightIcon.hidden = isDark;
-    if (darkIcon) darkIcon.hidden = !isDark;
   }
 
   // ---- playlist helpers ----

@@ -34,3 +34,7 @@ dist/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# uv / Python install logs
+*.log
+uv_install.log

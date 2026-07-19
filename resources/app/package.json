@@ -1,13 +1,14 @@
 {
   "name": "stem-player",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "绫波分轨 — 灵感源于 Kanye STEM PLAYER × 绫波丽。AI 分离人声/鼓/贝斯/其他四轨，生成艺术可视化。",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder --win --x64",
-    "build:portable": "electron-builder --win portable --x64"
+    "build:portable": "electron-builder --win portable --x64",
+    "build:installer": "electron-builder --win nsis --x64"
   },
   "build": {
     "appId": "com.stemplayer.app",
@@ -54,7 +55,7 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
@@ -62,6 +63,14 @@
       ],
       "icon": "static/icon.png",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "ilya-Setup-${version}.exe"
     },
     "portable": {
       "artifactName": "ilya-${version}.exe"
